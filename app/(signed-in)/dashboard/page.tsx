@@ -1,0 +1,113 @@
+"use client";
+
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+
+import {
+  Channel,
+  ChannelHeader,
+  MessageInput,
+  MessageList,
+  Thread,
+  Window,
+  useChatContext,
+} from "stream-chat-react";
+
+import { useSidebar } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+
+import { VideoIcon, LogOutIcon } from "lucide-react";
+
+export default function Dashboard() {
+  const { user } = useUser();
+  const router = useRouter();
+
+  const { channel, setActiveChannel } = useChatContext();
+  const { setOpen } = useSidebar();
+
+  /* ---------------- HANDLERS ---------------- */
+
+  const handleCall = () => {
+    if(!channel) return;
+    router.push(`/dashboard/video-call/${channel.id}`)
+  };
+
+  const handleLeaveChat = async () => {
+  if (!channel || !user?.id) {
+    console.log("No active channel or user");
+    return;
+  }
+
+  // Confirm before leaving
+  const confirm = window.confirm("Are you sure you want to leave the chat?");
+  if (!confirm) return;
+
+  try {
+    // Remove current user from the channel using Stream's removeMembers method
+    await channel.removeMembers([user.id]);
+
+    // Clear the active channel
+    setActiveChannel(undefined);
+
+    // Redirect to dashboard after leaving
+    router.push("/dashboard");
+  } catch (error) {
+    console.error("Error leaving chat:", error);
+    // You could add a toast notification here for better UX
+  }
+};
+
+
+  /* ---------------- RENDER ---------------- */
+
+  return (
+    <div className="flex flex-col w-full flex-1">
+      {channel ? (
+        <Channel>
+          <Window>
+            <div className="flex items-center justify-between">
+              {channel.data?.member_count === 1 ? (
+                <ChannelHeader title="Everyone else has left this chat" />
+              ) : (
+                <ChannelHeader />
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleCall}>
+                  <VideoIcon className="w-4 h-4 mr-2" />
+                  Video Call
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleLeaveChat}
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                >
+                  <LogOutIcon className="w-4 h-4 mr-2" />
+                  Leave Chat
+                </Button>
+              </div>
+            </div>
+             <MessageList />
+
+            {/* 🔥 THIS IS WHAT YOU WERE MISSING */}
+            <div className="sticky bottom-0 w-full">
+            <MessageInput focus />
+            </div>
+          </Window>
+
+          <Thread />
+        </Channel>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full text-center">
+          <h2 className="text-2xl font-semibold text-muted-foreground mb-4">
+            No chat selected
+          </h2>
+          <p className="text-muted-foreground">
+            Select a chat from the sidebar or start a new conversation
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
